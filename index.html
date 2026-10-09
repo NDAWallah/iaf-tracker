@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defense Exam Tracker</title>
+    <!-- Tailwind CSS for Design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen pb-24">
+
+    <!-- Header & Progress -->
+    <header class="bg-blue-900 text-white p-4 sticky top-0 z-50 shadow-xl">
+        <div class="max-w-2xl mx-auto">
+            <div class="flex justify-between items-center mb-3">
+                <h1 class="text-lg font-bold flex items-center gap-2">
+                    🎖️ DEFENSE TRACKER
+                </h1>
+                <div id="exam-badge" class="bg-blue-700 px-3 py-1 rounded-full text-xs uppercase tracking-wider font-semibold">
+                    IAF
+                </div>
+            </div>
+            
+            <!-- Overall Progress Bar -->
+            <div class="bg-blue-800/50 p-3 rounded-xl border border-blue-700">
+                <div class="flex justify-between items-end mb-1 text-sm">
+                    <span id="subject-name-display">English Completion</span>
+                    <span id="percent-text" class="font-bold text-green-400 text-lg">0%</span>
+                </div>
+                <div class="w-full bg-blue-950 rounded-full h-3">
+                    <div id="progress-fill" class="bg-green-400 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-2xl mx-auto p-4">
+        <!-- Exam Selection Chips -->
+        <div class="flex gap-2 overflow-x-auto no-scrollbar mb-4 py-1" id="exam-tabs">
+            <!-- Exams will appear here -->
+        </div>
+
+        <!-- Add Exam & Chapter Buttons -->
+        <div class="flex gap-2 mb-6">
+            <button onclick="addNewExam()" class="flex-1 bg-white border-2 border-dashed border-blue-300 text-blue-600 py-2 rounded-lg font-semibold text-sm hover:bg-blue-50">+ Add Exam</button>
+            <button onclick="addNewChapter()" class="flex-1 bg-white border-2 border-dashed border-green-300 text-green-600 py-2 rounded-lg font-semibold text-sm hover:bg-green-50">+ Add Chapter</button>
+        </div>
+
+        <!-- Subject Selection -->
+        <div class="flex gap-2 mb-6 border-b pb-2 overflow-x-auto no-scrollbar" id="subject-tabs">
+            <!-- Subjects will appear here -->
+        </div>
+
+        <!-- Chapters Table -->
+        <div id="chapters-container" class="space-y-3">
+            <!-- Chapters will appear here -->
+        </div>
+    </main>
+
+    <!-- Script Section -->
+    <script>
+        // Initial Data Structure
+        let appData = {
+            exams: {
+                "IAF": {
+                    "English": [
+                        "Comprehension", "Subject-Verb Agreement", "Tenses", "Prepositions", 
+                        "Articles", "Noun & Pronoun", "Adjective & Adverb", "Conjunctions", 
+                        "Modals", "Synonyms & Antonyms", "One-word Substitution", 
+                        "Spelling Errors", "Idioms & Phrases", "Active/Passive Voice", 
+                        "Direct/Indirect Narration"
+                    ],
+                    "Maths": ["Sets", "Logarithms", "Trigonometry"],
+                    "Physics": ["Kinematics", "Thermodynamics"]
+                },
+                "NDA": { "GAT": ["History", "Geography"], "Maths": ["Calculus", "Algebra"] },
+                "Navy": { "Science": ["Physics", "Chemistry"], "English": ["Grammar"] },
+                "Army": { "General Knowledge": ["History", "Static GK"], "Maths": ["Arithmetic"] }
+            },
+            progress: {}, // Stores which boxes are ticked
+            activeExam: "IAF",
+            activeSubject: "English"
+        };
+
+        // Load from LocalStorage
+        const saved = localStorage.getItem('defenseTrackerPro');
+        if (saved) appData = JSON.parse(saved);
+
+        function renderExams() {
+            const container = document.getElementById('exam-tabs');
+            container.innerHTML = '';
+            Object.keys(appData.exams).forEach(exam => {
+                const active = appData.activeExam === exam;
+                container.innerHTML += `
+                    <button onclick="switchExam('${exam}')" class="px-4 py-2 rounded-full whitespace-nowrap text-sm font-bold transition ${active ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-200'}">
+                        ${exam}
+                    </button>
+                `;
+            });
+        }
+
+        function renderSubjects() {
+            const container = document.getElementById('subject-tabs');
+            container.innerHTML = '';
+            const subjects = Object.keys(appData.exams[appData.activeExam]);
+            subjects.forEach(sub => {
+                const active = appData.activeSubject === sub;
+                container.innerHTML += `
+                    <button onclick="switchSubject('${sub}')" class="px-3 py-1 whitespace-nowrap text-sm font-semibold transition ${active ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}">
+                        ${sub}
+                    </button>
+                `;
+            });
+        }
+
+        function renderChapters() {
+            const container = document.getElementById('chapters-container');
+            const chapters = appData.exams[appData.activeExam][appData.activeSubject] || [];
+            container.innerHTML = '';
+            
+            document.getElementById('subject-name-display').innerText = `${appData.activeSubject} Progress`;
+            document.getElementById('exam-badge').innerText = appData.activeExam;
+
+            chapters.forEach((ch, idx) => {
+                const chId = `${appData.activeExam}_${appData.activeSubject}_${ch}`;
+                const prog = appData.progress[chId] || { pw: false, rwa: false, yt: false, test: false };
+                
+                container.innerHTML += `
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex flex-col gap-3">
+                            <h3 class="font-bold text-slate-700 text-sm">${idx+1}. ${ch}</h3>
+                            <div class="grid grid-cols-4 gap-2">
+                                ${renderToggle(chId, 'pw', 'PW', prog.pw)}
+                                ${renderToggle(chId, 'rwa', 'RWA', prog.rwa)}
+                                ${renderToggle(chId, 'yt', 'YouTube', prog.yt)}
+                                ${renderToggle(chId, 'test', 'Tests', prog.test)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            updateProgress();
+        }
+
+        function renderToggle(chId, type, label, val) {
+            return `
+                <button onclick="toggleBox('${chId}', '${type}')" class="flex flex-col items-center justify-center py-2 rounded-lg border transition ${val ? 'bg-green-100 border-green-500 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-400'}">
+                    <span class="text-[9px] font-black uppercase mb-1">${label}</span>
+                    <span>${val ? '✅' : '⚪'}</span>
+                </button>
+            `;
+        }
+
+        // Actions
+        window.switchExam = (exam) => {
+            appData.activeExam = exam;
+            appData.activeSubject = Object.keys(appData.exams[exam])[0];
+            saveAndRefresh();
+        };
+
+        window.switchSubject = (sub) => {
+            appData.activeSubject = sub;
+            saveAndRefresh();
+        };
+
+        window.toggleBox = (chId, type) => {
+            if (!appData.progress[chId]) appData.progress[chId] = { pw:false, rwa:false, yt:false, test:false };
+            appData.progress[chId][type] = !appData.progress[chId][type];
+            saveAndRefresh();
+        };
+
+        window.addNewExam = () => {
+            const name = prompt("Exam का नाम डालें (e.g. CDS, Police):");
+            if (name) {
+                appData.exams[name] = { "General": ["Chapter 1"] };
+                appData.activeExam = name;
+                appData.activeSubject = "General";
+                saveAndRefresh();
+            }
+        };
+
+        window.addNewChapter = () => {
+            const name = prompt("चैप्टर का नाम डालें:");
+            if (name) {
+                appData.exams[appData.activeExam][appData.activeSubject].push(name);
+                saveAndRefresh();
+            }
+        };
+
+        function updateProgress() {
+            const chapters = appData.exams[appData.activeExam][appData.activeSubject] || [];
+            let total = chapters.length * 4;
+            let checked = 0;
+
+            chapters.forEach(ch => {
+                const chId = `${appData.activeExam}_${appData.activeSubject}_${ch}`;
+                const p = appData.progress[chId];
+                if (p) {
+                    if (p.pw) checked++;
+                    if (p.rwa) checked++;
+                    if (p.yt) checked++;
+                    if (p.test) checked++;
+                }
+            });
+
+            const percent = total === 0 ? 0 : Math.round((checked / total) * 100);
+            document.getElementById('progress-fill').style.width = percent + '%';
+            document.getElementById('percent-text').innerText = percent + '%';
+        }
+
+        function saveAndRefresh() {
+            localStorage.setItem('defenseTrackerPro', JSON.stringify(appData));
+            renderExams();
+            renderSubjects();
+            renderChapters();
+        }
+
+        // Init
+        saveAndRefresh();
+    </script>
+</body>
+</html>
