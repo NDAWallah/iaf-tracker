@@ -434,7 +434,7 @@
       const name = prompt(appData.activeExam+' → '+appData.activeSubject+' me chapter ka naam:');
       if (!name || !name.trim()) return;
 
-r = name.trim();
+const r = name.trim();
       const chapters = appData.exams[appData.activeExam][appData.activeSubject];
       if (chapters.includes(r)) return alert('Ye chapter pehle se hai.');
       chapters.push(r);
