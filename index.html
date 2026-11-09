@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="hi">
 <head>
@@ -434,4 +433,373 @@
     function addNewChapter() {
       const name = prompt(appData.activeExam+' → '+appData.activeSubject+' me chapter ka naam:');
       if (!name || !name.trim()) return;
-      const chapte
+
+r = name.trim();
+      const chapters = appData.exams[appData.activeExam][appData.activeSubject];
+      if (chapters.includes(r)) return alert('Ye chapter pehle se hai.');
+      chapters.push(r);
+      persistAndRender();
+    }
+
+    function renameExam() {
+      const oldName = appData.activeExam;
+      const name = prompt('Exam ka naya naam:', oldName);
+      if (!name || !name.trim() || name.trim() === oldName) return;
+      const newName = name.trim();
+      if (appData.exams[newName]) return alert('Is naam ka exam pehle se hai.');
+      appData.exams[newName] = appData.exams[oldName];
+      delete appData.exams[oldName];
+      appData.activeExam = newName;
+      persistAndRender();
+    }
+
+    function removeExam() {
+      const name = appData.activeExam;
+      if (Object.keys(appData.exams).length <= 1) return alert('Kam se kam ek exam rehna zaroori hai.');
+      if (!confirm(`"${name}" exam aur uske subjects remove kar dein?`)) return;
+      delete appData.exams[name];
+      appData.activeExam = Object.keys(appData.exams)[0];
+      appData.activeSubject = Object.keys(appData.exams[appData.activeExam])[0];
+      persistAndRender();
+    }
+
+    function renameSubject() {
+      const oldName = appData.activeSubject;
+      const name = prompt('Subject ka naya naam:', oldName);
+      if (!name || !name.trim() || name.trim() === oldName) return;
+      const newName = name.trim();
+      const subjects = appData.exams[appData.activeExam];
+      if (subjects[newName]) return alert('Ye subject pehle se hai.');
+      subjects[newName] = subjects[oldName];
+      delete subjects[oldName];
+      appData.activeSubject = newName;
+      persistAndRender();
+    }
+
+    function removeSubject() {
+      const subjects = appData.exams[appData.activeExam];
+      if (Object.keys(subjects).length <= 1) return alert('Kam se kam ek subject rehna zaroori hai.');
+      if (!confirm(`"${appData.activeSubject}" subject remove kar dein?`)) return;
+      delete subjects[appData.activeSubject];
+      appData.activeSubject = Object.keys(subjects)[0];
+      persistAndRender();
+    }
+
+    function renameChapter(oldName) {
+      const name = prompt('Chapter ka naya naam:', oldName);
+      if (!name || !name.trim() || name.trim() === oldName) return;
+      const newName = name.trim();
+      const chapters = appData.exams[appData.activeExam][appData.activeSubject];
+      if (chapters.includes(newName)) return alert('Ye chapter pehle se hai.');
+      const index = chapters.indexOf(oldName);
+      if (index < 0) return;
+      chapters[index] = newName;
+      const oldKey = progressKey(oldName);
+      const newKey = progressKey(newName);
+      if (appData.progress[oldKey]) {
+        appData.progress[newKey] = appData.progress[oldKey];
+        delete appData.progress[oldKey];
+      }
+      persistAndRender();
+    }
+
+    function removeChapter(name) {
+      if (!confirm(`"${name}" chapter delete kar dein?`)) return;
+      const chapters = appData.exams[appData.activeExam][appData.activeSubject];
+      const index = chapters.indexOf(name);
+      if (index >= 0) chapters.splice(index, 1);
+      delete appData.progress[progressKey(name)];
+      persistAndRender();
+    }
+
+    // PDF storage: IndexedDB
+    function openPDFDatabase() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open('IAFTrackerResources', 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains('pdfs')) {
+            db.createObjectStore('pdfs', {keyPath:'id', autoIncrement:true});
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function pickSubjectPDF() {
+      $('subject-pdf-input').click();
+    }
+
+    async function saveSubjectPDFs(event) {
+      const files = Array.from(event.target.files || []);
+      if (!files.length) return;
+      try {
+        const db = await openPDFDatabase();
+        for (const file of files) {
+          if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) continue;
+          await new Promise((resolve, reject) => {
+            const tx = db.transaction('pdfs', 'readwrite');
+            tx.objectStore('pdfs').add({
+              name:file.name,
+              exam:appData.activeExam,
+              subject:appData.activeSubject,
+              blob:file,
+              addedAt:Date.now()
+            });
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+          });
+        }
+        db.close();
+        alert('PDF save ho gayi!');
+        renderSubjectLibrary();
+      } catch (err) {
+        alert('PDF save nahi hui: ' + err.message);
+      }
+      event.target.value = '';
+    }
+
+    async function renderSubjectLibrary() {
+      $('library-subject-label').textContent = appData.activeSubject;
+      const key = subjectKey();
+      const tests = appData.tests[key] || [];
+      $('subject-test-list').innerHTML = tests.length ? tests.map((test, index) =>
+        `<div class="flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-lg">
+          <span class="text-sm font-semibold">${esc(test.name)}</span>
+          <button onclick="removeSubjectTest(${index})" class="text-xs text-red-700 underline">Delete</button>
+        </div>`
+      ).join('') : '<p class="text-xs text-slate-400">Abhi koi test nahi hai.</p>';
+
+      try {
+        const db = await openPDFDatabase();
+        const records = await new Promise((resolve, reject) => {
+          const tx = db.transaction('pdfs', 'readonly');
+          const request = tx.objectStore('pdfs').getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+        });
+        db.close();
+        const files = records.filter(item => item.exam === appData.activeExam && item.subject === appData.activeSubject);
+        $('subject-pdf-list').innerHTML = files.length ? files.map(file =>
+          `<div class="flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-lg">
+            <span class="text-xs font-semibold break-all">📄 ${esc(file.name)}</span>
+            <span class="flex gap-2 shrink-0">
+              <button onclick="openSubjectPDF(${file.id})" class="text-xs text-blue-700 underline">Open</button>
+              <button onclick="deleteSubjectPDF(${file.id})" class="text-xs text-red-700 underline">Delete</button>
+            </span>
+          </div>`
+        ).join('') : '<p class="text-xs text-slate-400">Abhi koi PDF nahi hai.</p>';
+      } catch (err) {
+        $('subject-pdf-list').innerHTML = '<p class="text-xs text-red-500">PDF library load nahi hui.</p>';
+      }
+    }
+
+    async function openSubjectPDF(id) {
+      try {
+        const db = await openPDFDatabase();
+        const file = await new Promise((resolve, reject) => {
+          const tx = db.transaction('pdfs', 'readonly');
+          const request = tx.objectStore('pdfs').get(id);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        db.close();
+        if (!file) return alert('PDF nahi mili.');
+        const url = URL.createObjectURL(file.blob);
+        const tab = window.open(url, '_blank');
+        if (!tab) alert('Browser me pop-up allow karo.');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } catch (err) {
+        alert('PDF open nahi hui: ' + err.message);
+      }
+    }
+
+    async function deleteSubjectPDF(id) {
+      if (!confirm('Ye PDF delete kar dein?')) return;
+      try {
+        const db = await openPDFDatabase();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction('pdfs', 'readwrite');
+          tx.objectStore('pdfs').delete(id);
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error);
+        });
+        db.close();
+        renderSubjectLibrary();
+      } catch (err) {
+        alert('PDF delete nahi hui: ' + err.message);
+      }
+    }
+
+    function addSubjectTest() {
+      const name = prompt('Test ka naam likho:');
+      if (!name || !name.trim()) return;
+      const key = subjectKey();
+      if (!appData.tests[key]) appData.tests[key] = [];
+      appData.tests[key].push({name:name.trim(), done:false});
+      saveData();
+      renderSubjectLibrary();
+    }
+
+    function removeSubjectTest(index) {
+      const key = subjectKey();
+      if (!appData.tests[key]) return;
+      appData.tests[key].splice(index, 1);
+      saveData();
+      renderSubjectLibrary();
+    }
+
+    // Study streak
+    function renderStreak() {
+      const streak = appData.streak || {dates:[],best:0};
+      const current = calculateStreakFromDates(streak.dates || []);
+      $('header-streak').textContent = current;
+      $('streak-count').textContent = current;
+      $('best-streak').textContent = Math.max(streak.best || 0, current);
+      $('streak-status').textContent = (streak.dates || []).includes(todayKey())
+        ? 'Aaj ka check-in complete ✓' : 'Aaj ka check-in baaki';
+      $('armory-total').textContent = (streak.dates || []).length + ' AK-47';
+      $('streak-checkin').disabled = (streak.dates || []).includes(todayKey());
+      $('streak-checkin').style.opacity = $('streak-checkin').disabled ? '.55' : '1';
+      $('streak-checkin').textContent = $('streak-checkin').disabled
+        ? '✓ Aaj ka check-in ho gaya' : '🔥 Aaj ki padhai complete';
+      $('checkin-message').textContent = $('streak-checkin').disabled
+        ? 'Shabash! Kal phir check-in karna.' : '';
+
+      const board = $('armory-board');
+      const count = Math.min((streak.dates || []).length, 64);
+      board.innerHTML = Array.from({length:64}, (_,i) => {
+        const filled = i < count;
+        return `<div class="chess-cell ${((Math.floor(i/8)+i%8)%2)?'dark':'light'}">${filled?'🔫':''}</div>`;
+      }).join('');
+      $('armory-empty').classList.toggle('hidden', count > 0);
+    }
+
+    function openStreak() {
+      $('streak-sheet').classList.add('show');
+      renderStreak();
+    }
+
+    function closeStreak() {
+      $('streak-sheet').classList.remove('show');
+    }
+
+    function checkInToday() {
+      if (!appData.streak) appData.streak = {dates:[],best:0};
+      const dates = appData.streak.dates;
+      if (dates.includes(todayKey())) return alert('Aaj ka check-in pehle hi ho chuka hai.');
+      dates.push(todayKey());
+      dates.sort();
+      const current = calculateStreakFromDates(dates);
+      appData.streak.best = Math.max(appData.streak.best || 0, current);
+      saveData();
+      renderStreak();
+      alert('Shabash! Aaj ka check-in save ho gaya. Jai Hind!');
+    }
+
+    // Backup and restore
+    function renderBackupInfo() {
+      $('backup-info').textContent = lastBackupAt
+        ? 'Last backup: ' + lastBackupAt
+        : 'Apna study data safe rakhne ke liye regular backup download karein.';
+    }
+
+    function exportData() {
+      const payload = {
+        app:'Defense Exam Tracker',
+        version:APP_VERSION,
+        exportedAt:new Date().toISOString(),
+        data:appData
+      };
+      const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'IAF-Tracker-Backup-' + todayKey() + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      lastBackupAt = new Date().toLocaleString();
+      renderBackupInfo();
+    }
+
+    function importData(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          const restored = sanitizeData(parsed.data || parsed);
+          if (!restored) throw new Error('Backup file ka format sahi nahi hai.');
+          if (!confirm('Current study data replace karke backup restore karein?')) return;
+          appData = restored;
+          saveData();
+          renderAll();
+          alert('Backup successfully restore ho gaya!');
+        } catch (err) {
+          alert('Restore nahi hua: ' + err.message);
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.onerror = () => alert('File read nahi ho paayi.');
+      reader.readAsText(file);
+    }
+
+    // App refresh and error handling
+    function forceUpdate() {
+      const button = document.activeElement;
+      if (button && button.tagName === 'BUTTON') button.disabled = true;
+      window.location.reload();
+    }
+
+    function hideError() {
+      $('err-banner').style.display = 'none';
+    }
+
+    window.addEventListener('error', event => {
+      $('err-text').textContent = event.message || 'Unknown JavaScript error';
+      $('err-banner').style.display = 'block';
+    });
+
+    window.addEventListener('unhandledrejection', event => {
+      $('err-text').textContent = event.reason?.message || String(event.reason || 'Unknown error');
+      $('err-banner').style.display = 'block';
+    });
+
+    window.addEventListener('online', () => $('net-badge').classList.add('hidden'));
+    window.addEventListener('offline', () => $('net-badge').classList.remove('hidden'));
+
+    // Make functions available to the HTML onclick buttons
+    Object.assign(window, {
+      switchExam, switchSubject, toggleProgress,
+      addNewExam, addNewSubject, addNewChapter,
+      renameExam, removeExam, renameSubject, removeSubject,
+      renameChapter, removeChapter,
+      pickSubjectPDF, saveSubjectPDFs, openSubjectPDF, deleteSubjectPDF,
+      addSubjectTest, removeSubjectTest,
+      openStreak, closeStreak, checkInToday,
+      exportData, importData, forceUpdate, hideError
+    });
+
+    loadData();
+    renderLogo();
+    renderAll();
+    renderBackupInfo();
+
+    if (!navigator.onLine) $('net-badge').classList.remove('hidden');
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => {
+          console.warn('Service worker registration failed:', err);
+        });
+      });
+    }
+  })();
+  </script>
+</body>
+</html>
