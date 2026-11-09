@@ -72,6 +72,49 @@
         </div>
     </main>
 
+
+    <!-- AI Assistant Button -->
+    <button id="ai-fab" onclick="toggleAI(true)" class="fixed bottom-5 right-5 z-40 bg-blue-600 text-white w-14 h-14 rounded-full shadow-2xl text-2xl active:scale-95">🤖</button>
+
+    <!-- AI Assistant Sheet -->
+    <div id="ai-sheet" class="hidden fixed inset-0 z-[60] bg-black/50 flex items-end">
+        <div class="bg-white w-full max-w-2xl mx-auto rounded-t-2xl p-4 max-h-[88vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="font-bold text-slate-800">🤖 AI Assistant</h2>
+                <div class="flex gap-2">
+                    <button onclick="toggleAISettings()" class="px-3 py-1 rounded-lg bg-slate-100 text-sm">⚙️</button>
+                    <button onclick="toggleAI(false)" class="px-3 py-1 rounded-lg bg-slate-100 text-sm">✕</button>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div id="ai-settings" class="hidden mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <p class="text-xs text-slate-500">Free Gemini API key: aistudio.google.com/apikey. Key sirf tumhare phone ke browser me save hoti hai.</p>
+                <input id="ai-key" type="password" placeholder="Gemini API Key" class="w-full border rounded-lg px-3 py-2 text-sm">
+                <input id="ai-model" type="text" placeholder="Model (default: gemini-2.5-flash)" class="w-full border rounded-lg px-3 py-2 text-sm">
+                <button onclick="saveAISettings()" class="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold">Save</button>
+            </div>
+
+            <textarea id="ai-input" rows="3" class="w-full border rounded-xl p-3 text-sm" placeholder="Jaise: NDA Maths me Calculus ke saare topics add karo&#10;ya: IAF English Tenses ka PW aur YouTube done kar do"></textarea>
+            <div class="flex gap-2 mt-2">
+                <button id="ai-mic" onclick="startVoice()" class="px-4 py-2 rounded-lg bg-slate-100 text-lg">🎤</button>
+                <button id="ai-send" onclick="runAI()" class="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold text-sm">Bhejo</button>
+            </div>
+
+            <div id="ai-status" class="text-sm text-slate-500 mt-3"></div>
+
+            <!-- Preview of actions -->
+            <div id="ai-preview" class="hidden mt-3">
+                <div id="ai-message" class="text-sm text-slate-700 mb-2"></div>
+                <ul id="ai-actions" class="text-sm space-y-1 mb-3"></ul>
+                <div class="flex gap-2">
+                    <button onclick="cancelAI()" class="flex-1 bg-slate-100 py-2 rounded-lg text-sm font-semibold">Cancel</button>
+                    <button onclick="applyAI()" class="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-semibold">✅ Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Script Section -->
     <script>
         // Initial Data Structure
@@ -101,13 +144,16 @@
         const saved = localStorage.getItem('defenseTrackerPro');
         if (saved) appData = JSON.parse(saved);
 
+        // Safe string for inline onclick (chapter names may contain quotes)
+        const q = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
         function renderExams() {
             const container = document.getElementById('exam-tabs');
             container.innerHTML = '';
             Object.keys(appData.exams).forEach(exam => {
                 const active = appData.activeExam === exam;
                 container.innerHTML += `
-                    <button onclick="switchExam('${exam}')" class="px-4 py-2 rounded-full whitespace-nowrap text-sm font-bold transition ${active ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-200'}">
+                    <button onclick="switchExam('${q(exam)}')" class="px-4 py-2 rounded-full whitespace-nowrap text-sm font-bold transition ${active ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-200'}">
                         ${exam}
                     </button>
                 `;
@@ -121,7 +167,7 @@
             subjects.forEach(sub => {
                 const active = appData.activeSubject === sub;
                 container.innerHTML += `
-                    <button onclick="switchSubject('${sub}')" class="px-3 py-1 whitespace-nowrap text-sm font-semibold transition ${active ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}">
+                    <button onclick="switchSubject('${q(sub)}')" class="px-3 py-1 whitespace-nowrap text-sm font-semibold transition ${active ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'}">
                         ${sub}
                     </button>
                 `;
@@ -159,7 +205,7 @@
 
         function renderToggle(chId, type, label, val) {
             return `
-                <button onclick="toggleBox('${chId}', '${type}')" class="flex flex-col items-center justify-center py-2 rounded-lg border transition ${val ? 'bg-green-100 border-green-500 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-400'}">
+                <button onclick="toggleBox('${q(chId)}', '${type}')" class="flex flex-col items-center justify-center py-2 rounded-lg border transition ${val ? 'bg-green-100 border-green-500 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-400'}">
                     <span class="text-[9px] font-black uppercase mb-1">${label}</span>
                     <span>${val ? '✅' : '⚪'}</span>
                 </button>
@@ -234,13 +280,117 @@
         saveAndRefresh();
     </script>
 
-    <!-- PWA: Service Worker register -->
+
+    <!-- AI Assistant Logic -->
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error:', err));
-            });
+        const AI_KEY_NAME = 'iafGeminiKey';
+        const AI_MODEL_NAME = 'iafGeminiModel';
+        const DEFAULT_MODEL = 'gemini-2.5-flash';
+        let pendingActions = [];
+
+        const AI_SYSTEM = `You control a study-tracker web app for Indian defence exam students (IAF, NDA, Navy, Army, CDS etc).
+The user writes in Hinglish/Hindi/English. Convert the request into actions.
+Reply ONLY with JSON: {"message":"short friendly Hinglish reply","actions":[...]}.
+Action types:
+{"type":"add_exam","exam":"CDS"}
+{"type":"add_subject","exam":"NDA","subject":"Physics"}
+{"type":"add_chapters","exam":"NDA","subject":"Maths","chapters":["Calculus","Algebra"]}
+{"type":"remove_chapter","exam":"NDA","subject":"Maths","chapter":"Algebra"}
+{"type":"mark","exam":"IAF","subject":"English","chapter":"Tenses","field":"pw|rwa|yt|test","value":true}
+{"type":"switch","exam":"NDA","subject":"Maths"}
+Rules:
+- Use existing exam/subject/chapter names exactly as in CURRENT DATA. If the user does not say exam or subject, use activeExam/activeSubject.
+- For "mark", chapter "*" means every chapter of that subject. field pw=PW, rwa=RWA, yt=YouTube, test=Tests. Use several mark actions to set several fields.
+- If the user asks to add a syllabus/topics/chapters of a subject without naming them, generate the standard chapter list for that exam (short names, no duplicates of existing ones).
+- Do not add chapters that already exist. Never invent exams the user did not mention.
+- If the request is unclear or not about the tracker, return an empty actions list and explain in message.`;
+
+        function toggleAI(show) {
+            document.getElementById('ai-sheet').classList.toggle('hidden', !show);
+            if (show) {
+                document.getElementById('ai-key').value = localStorage.getItem(AI_KEY_NAME) || '';
+                document.getElementById('ai-model').value = localStorage.getItem(AI_MODEL_NAME) || '';
+            }
         }
-    </script>
-</body>
-</html>
+        function toggleAISettings() { document.getElementById('ai-settings').classList.toggle('hidden'); }
+        function saveAISettings() {
+            localStorage.setItem(AI_KEY_NAME, document.getElementById('ai-key').value.trim());
+            localStorage.setItem(AI_MODEL_NAME, document.getElementById('ai-model').value.trim());
+            document.getElementById('ai-settings').classList.add('hidden');
+            setAIStatus('✅ Save ho gaya');
+        }
+        function setAIStatus(t) { document.getElementById('ai-status').innerText = t; }
+
+        function cancelAI() {
+            pendingActions = [];
+            document.getElementById('ai-preview').classList.add('hidden');
+        }
+
+        function startVoice() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) { setAIStatus('Is browser me voice support nahi hai'); return; }
+            const rec = new SR();
+            rec.lang = 'hi-IN';
+            rec.onresult = e => { document.getElementById('ai-input').value += ' ' + e.results[0][0].transcript; };
+            rec.onerror = () => setAIStatus('Voice me problem aayi');
+            rec.start();
+            setAIStatus('🎤 Bolo...');
+        }
+
+        async function runAI() {
+            const key = localStorage.getItem(AI_KEY_NAME);
+            const text = document.getElementById('ai-input').value.trim();
+            if (!key) { document.getElementById('ai-settings').classList.remove('hidden'); setAIStatus('Pehle API key daalo (⚙️)'); return; }
+            if (!text) { setAIStatus('Kuch likho ya bolo'); return; }
+
+            const model = localStorage.getItem(AI_MODEL_NAME) || DEFAULT_MODEL;
+            const btn = document.getElementById('ai-send');
+            btn.disabled = true; setAIStatus('⏳ AI soch raha hai...'); cancelAI();
+
+            const current = JSON.stringify({ activeExam: appData.activeExam, activeSubject: appData.activeSubject, exams: appData.exams });
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+                    body: JSON.stringify({
+                        systemInstruction: { parts: [{ text: AI_SYSTEM }] },
+                        contents: [{ role: 'user', parts: [{ text: `CURRENT DATA:\n${current}\n\nUSER REQUEST:\n${text}` }] }],
+                        generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error?.message || 'API error');
+                let raw = data.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
+                raw = raw.replace(/```json|```/g, '').trim();
+                const out = JSON.parse(raw);
+                pendingActions = Array.isArray(out.actions) ? out.actions : [];
+                showPreview(out.message || '');
+                setAIStatus('');
+            } catch (err) {
+                setAIStatus('❌ ' + err.message);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function describeAction(a) {
+            const f = { pw: 'PW', rwa: 'RWA', yt: 'YouTube', test: 'Tests' };
+            switch (a.type) {
+                case 'add_exam': return `➕ Exam: ${a.exam}`;
+                case 'add_subject': return `➕ ${a.exam} → Subject: ${a.subject}`;
+                case 'add_chapters': return `➕ ${a.exam || appData.activeExam} / ${a.subject || appData.activeSubject}: ${(a.chapters || []).join(', ')}`;
+                case 'remove_chapter': return `🗑️ ${a.subject || appData.activeSubject}: ${a.chapter} hatao`;
+                case 'mark': return `${a.value ? '✅' : '⚪'} ${a.chapter === '*' ? 'Saare chapters' : a.chapter} → ${f[a.field] || a.field}`;
+                case 'switch': return `➡️ ${a.exam || appData.activeExam} / ${a.subject || ''} kholo`;
+                default: return '❓ ' + JSON.stringify(a);
+            }
+        }
+
+        function showPreview(msg) {
+            document.getElementById('ai-message').innerText = msg;
+            const ul = document.getElementById('ai-actions');
+            ul.innerHTML = '';
+            pendingActions.forEach(a => {
+                const li = document.createElement('li');
+                li.className = 'bg-slate-50 border border-slate-200 rounded-lg px-3 py-2';
+          
