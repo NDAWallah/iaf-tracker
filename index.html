@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Defense Exam Tracker</title>
+
+    <!-- PWA (Install to Home Screen) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="IAF Tracker">
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
     <!-- Tailwind CSS for Design -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -25,7 +35,7 @@
                     IAF
                 </div>
             </div>
-            
+
             <!-- Overall Progress Bar -->
             <div class="bg-blue-800/50 p-3 rounded-xl border border-blue-700">
                 <div class="flex justify-between items-end mb-1 text-sm">
@@ -122,14 +132,14 @@
             const container = document.getElementById('chapters-container');
             const chapters = appData.exams[appData.activeExam][appData.activeSubject] || [];
             container.innerHTML = '';
-            
+
             document.getElementById('subject-name-display').innerText = `${appData.activeSubject} Progress`;
             document.getElementById('exam-badge').innerText = appData.activeExam;
 
             chapters.forEach((ch, idx) => {
                 const chId = `${appData.activeExam}_${appData.activeSubject}_${ch}`;
                 const prog = appData.progress[chId] || { pw: false, rwa: false, yt: false, test: false };
-                
+
                 container.innerHTML += `
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                         <div class="flex flex-col gap-3">
@@ -222,6 +232,15 @@
 
         // Init
         saveAndRefresh();
+    </script>
+
+    <!-- PWA: Service Worker register -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error:', err));
+            });
+        }
     </script>
 </body>
 </html>
