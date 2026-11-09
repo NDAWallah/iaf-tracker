@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1f4d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="IAF Tracker">
+  <title>Defense Exam Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap');
+    :root{--navy:#0b1f4d;--navy2:#13306b;--navy3:#1b3f8b;--saffron:#ff9933;--green:#138808;--bg:#f1f5fb}
+    *{box-sizing:border-box} body{font-family:Inter,'Noto Sans Devanagari',sans-serif;background:var(--bg);color:#1e293b;margin:0}
+    .tricolor{height:5px;background:linear-gradient(90deg,#ff9933 0 33.33%,#fff 33.33% 66.66%,#138808 66.66% 100%)}
+    .hdr{background:linear-gradient(135deg,var(--navy),var(--navy2) 60%,var(--navy3))}.glass{background:#ffffff14;border:1px solid #ffffff26}.pfill{background:linear-gradient(90deg,#ff9933,#fff 50%,#138808)}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 1px 3px #0b1f4d10}.ch-none{border-left:4px solid #cbd5e1}.ch-part{border-left:4px solid var(--saffron)}.ch-done{border-left:4px solid var(--green);background:#f6fdf6}
+    .stat{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 8px;text-align:center;box-shadow:0 1px 3px #0b1f4d10}.stat b{display:block;font-size:20px;font-weight:800;color:var(--navy)}.stat span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+    .tgl{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 2px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#94a3b8;transition:.15s}.tgl.on{background:#ecfdf0;border-color:var(--green);color:#0e6b06}.tgl .lbl{font-size:9px;font-weight:800;letter-spacing:.03em;margin-bottom:5px}.tgl .dot{width:20px;height:20px;border-radius:50%;border:2px solid #cbd5e1;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:800}.tgl.on .dot{background:var(--green);border-color:var(--green)}
+    .chip{padding:8px 16px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap}.chip.on{background:var(--navy);color:#fff}.chip.off{background:#fff;color:#475569;border:1px solid #dbe3ef}.stab{padding:7px 12px;font-size:13px;font-weight:700;white-space:nowrap;color:#94a3b8;border-bottom:3px solid transparent}.stab.on{color:var(--navy);border-bottom-color:var(--saffron)}
+    .btn-navy{background:var(--navy);color:#fff}.btn-green{background:var(--green);color:#fff}.soft-btn{background:#f1f5f9;color:#334155}.ai-fab{position:fixed;right:18px;bottom:20px;z-index:90;width:58px;height:58px;border-radius:50%;border:3px solid var(--saffron);background:var(--navy);color:#fff;font-size:26px;box-shadow:0 8px 20px #0b1f4d70}
+    .overlay{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:14px;background:#07132699;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}.panel{width:100%;max-width:600px;max-height:92vh;overflow:auto;background:#fff;border-radius:20px;padding:16px;box-shadow:0 20px 70px #0005}.ai-overlay{align-items:flex-end}.ai-panel{width:100%;max-width:42rem;max-height:90vh;overflow:auto;background:#fff;border-radius:20px 20px 0 0;padding:16px;margin:0 auto}.ai-panel .tricolor{border-radius:4px;margin:-4px 0 12px}
+    .chessboard{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));border:4px solid #1e293b;border-radius:10px;overflow:hidden}.chess-cell{min-width:0;aspect-ratio:1;display:flex;align-items:center;justify-content:center;padding:3px}.chess-cell:nth-child(16n+1),.chess-cell:nth-child(16n+3),.chess-cell:nth-child(16n+5),.chess-cell:nth-child(16n+7),.chess-cell:nth-child(16n+10),.chess-cell:nth-child(16n+12),.chess-cell:nth-child(16n+14),.chess-cell:nth-child(16n+16){background:#c6b28c}.chess-cell:nth-child(16n+2),.chess-cell:nth-child(16n+4),.chess-cell:nth-child(16n+6),.chess-cell:nth-child(16n+8),.chess-cell:nth-child(16n+9),.chess-cell:nth-child(16n+11),.chess-cell:nth-child(16n+13),.chess-cell:nth-child(16n+15){background:#34445c}
+    .rifle{width:100%;max-width:64px;height:auto;filter:drop-shadow(0 2px 1px #0005)}.rifle-label{font-size:7px;font-weight:900;color:#fef3c7;letter-spacing:.02em}.streak-glow{color:#f59e0b;text-shadow:0 2px 12px #f59e0b66}.hidden-force{display:none!important}.no-scrollbar::-webkit-scrollbar{display:none}
+    #err-banner{display:none;position:fixed;left:0;right:0;bottom:0;z-index:300;background:#7f1d1d;color:#fff;padding:12px;font-size:12px;max-height:45vh;overflow:auto}
+    button{cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}input,textarea{color:#0f172a}
+  </style>
+</head>
+<body class="min-h-screen">
+  <div id="err-banner"><b>⚠️ App me error aaya:</b> <span id="err-text"></span><div class="flex gap-2 mt-2"><button onclick="forceUpdate()" class="bg-white text-red-900 px-3 py-2 rounded-lg font-bold">🔄 App refresh</button><button onclick="hideError()" class="bg-white/20 px-3 py-2 rounded-lg">Band</button></div></div>
+
+  <header class="hdr sticky top-0 z-50 text-white shadow-xl">
+    <div class="tricolor"></div>
+    <div class="max-w-2xl mx-auto p-4">
+      <div class="flex justify-between items-center mb-3">
+        <div class="flex items-center gap-3"><div id="logo" class="w-11 h-11 rounded-full glass flex items-center justify-center"></div><div><h1 class="text-base font-extrabold tracking-wide">DEFENSE TRACKER</h1><p class="text-[11px] text-blue-200">जय हिन्द 🇮🇳 · Exam Preparation</p></div></div>
+        <div class="flex items-center gap-2"><span id="net-badge" class="hidden bg-amber-500 text-white px-2 py-1 rounded-full text-[10px] font-bold">📴 Offline</span><div id="exam-badge" class="px-3 py-1 rounded-full text-xs uppercase tracking-wider font-extrabold" style="background:#ff9933;color:#0b1f4d">IAF</div></div>
+      </div>
+      <div class="glass p-3 rounded-xl"><div class="flex justify-between items-end mb-2 text-sm"><span id="subject-name-display" class="font-semibold text-blue-100">English Progress</span><span id="percent-text" class="font-extrabold text-2xl">0%</span></div><div class="w-full rounded-full h-3 bg-black/30"><div id="progress-fill" class="pfill h-3 rounded-full transition-all" style="width:0%"></div></div></div>
+      <div class="flex justify-end mt-3"><button onclick="openStreak()" class="rounded-full bg-white/15 border border-white/30 px-4 py-2 text-sm font-bold">🔥 Streak <span id="header-streak">0</span></button></div>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto p-4">
+    <div class="grid grid-cols-3 gap-2 mb-4"><div class="stat" style="border-top:3px solid #ff9933"><b id="stat-total">0</b><span>Chapters</span></div><div class="stat" style="border-top:3px solid #138808"><b id="stat-done">0</b><span>Complete</span></div><div class="stat" style="border-top:3px solid #0b1f4d"><b id="stat-left">0</b><span>Baaki</span></div></div>
+    <div class="flex gap-2 overflow-x-auto no-scrollbar mb-4 py-1" id="exam-tabs"></div>
+    <div class="grid grid-cols-3 gap-2 mb-5"><button onclick="addNewExam()" class="bg-white py-2.5 rounded-xl font-bold text-xs" style="border:2px dashed #13306b;color:#13306b">+ Add Exam</button><button onclick="addNewSubject()" class="bg-white py-2.5 rounded-xl font-bold text-xs" style="border:2px dashed #d97706;color:#92400e">+ Add Subject</button><button onclick="addNewChapter()" class="bg-white py-2.5 rounded-xl font-bold text-xs" style="border:2px dashed #138808;color:#138808">+ Add Chapter</button></div>
+    <div class="flex gap-1 mb-4 border-b border-slate-200 overflow-x-auto no-scrollbar" id="subject-tabs"></div>
+    <div id="chapters-container" class="space-y-3"></div>
+
+    <div class="card mt-8 p-4"><h3 class="font-bold text-sm mb-1" style="color:#0b1f4d">💾 Data Backup</h3><p id="backup-info" class="text-xs text-slate-500 mb-3"></p><div class="flex gap-2"><button onclick="exportData()" class="flex-1 btn-navy py-2.5 rounded-lg text-sm font-semibold">⬇️ Backup</button><button onclick="document.getElementById('import-file').click()" class="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg text-sm font-semibold">⬆️ Restore</button><input id="import-file" type="file" accept="application/json,.json" class="hidden" onchange="importData(event)"></div><button onclick="forceUpdate()" class="w-full mt-2 bg-slate-100 text-slate-700 py-2.5 rounded-lg text-sm font-semibold">🔄 App update / fix karo</button><p class="text-[11px] text-slate-400 mt-1">App cache refresh hota hai; study data localStorage me safe rehta hai.</p></div>
+    <footer class="mt-8 mb-24 text-center"><div class="tricolor rounded mx-auto mb-2" style="width:80px"></div><p class="text-xs text-slate-400">जय हिन्द · Padhte raho, aage badhte raho</p><p class="text-[10px] text-slate-300 mt-1">v<span id="ver"></span></p></footer>
+  </main>
+
+  <button id="ai-fab" class="ai-fab" onclick="toggleAI(true)" aria-label="Chapter Assistant">🤖</button>
+  <div id="ai-sheet" class="overlay ai-overlay" onclick="if(event.target===this)toggleAI(false)"><div class="ai-panel"><div class="tricolor"></div><div class="flex justify-between items-center mb-3"><div><h2 class="font-bold" style="color:#0b1f4d">🤖 Chapter Assistant</h2><p class="text-xs text-slate-500">Bina API key ke chapter add karein</p></div><button onclick="toggleAI(false)" class="px-3 py-1 rounded-lg bg-slate-100">✕</button></div>
+    <textarea id="ai-input" rows="3" class="w-full border rounded-xl p-3 text-sm" placeholder="Example: IAF aur NDA ke English subject me Noun add karo&#10;Example: IAF English aur Maths me Noun aur Algebra add karo"></textarea><div class="flex gap-2 mt-2"><button id="ai-mic" onclick="startVoice()" class="px-4 py-2 rounded-lg bg-slate-100 text-lg">🎤</button><button id="ai-send" onclick="runAI()" class="flex-1 btn-navy py-2 rounded-lg font-semibold text-sm">Preview banao</button></div>
+    <p id="ai-status" class="text-sm text-slate-500 mt-3" role="status"></p><div id="ai-preview" class="hidden mt-3 border rounded-xl p-3 bg-slate-50"><div id="ai-message" class="text-sm text-slate-700 mb-2"></div><ul id="ai-actions" class="text-sm space-y-2 mb-3 list-disc pl-5"></ul><div class="flex gap-2"><button onclick="cancelAI()" class="flex-1 soft-btn py-2 rounded-lg text-sm font-semibold">Cancel</button><button id="ai-apply" onclick="applyAI()" class="flex-1 btn-green py-2 rounded-lg text-sm font-semibold">✅ Apply</button></div></div>
+    <details class="mt-4 border-t pt-3"><summary class="text-sm font-semibold text-slate-600">📋 List paste karke ek saath chapters add karo</summary><p class="text-xs text-slate-500 mt-2">Current subject: <b id="bulk-target"></b>. Har line me ek chapter.</p><textarea id="bulk-input" rows="4" class="w-full border rounded-xl p-3 text-sm mt-2" placeholder="Noun\nPronoun\nVerb"></textarea><button onclick="bulkAdd()" class="w-full btn-green py-2 rounded-lg text-sm font-semibold mt-2">Add chapters</button></details>
+  </div></div>
+
+  <div id="streak-sheet" class="overlay" onclick="if(event.target===this)closeStreak()"><div class="panel" role="dialog" aria-modal="true" aria-labelledby="streak-title"><div class="flex items-start justify-between gap-3"><div><p class="text-xs uppercase font-extrabold tracking-widest text-amber-600">Discipline builds strength</p><h2 id="streak-title" class="text-2xl font-extrabold text-slate-900">🔥 Your Study Streak</h2></div><button onclick="closeStreak()" class="bg-slate-100 rounded-lg px-3 py-2">✕</button></div>
+    <div class="rounded-2xl p-4 mt-4 text-white" style="background:linear-gradient(135deg,#101d36,#1d3c68)"><div class="flex items-end justify-between"><div><p class="text-sm text-blue-100">Current streak</p><div class="text-5xl font-black mt-1"><span id="streak-count">0</span> <span class="text-2xl">🔥</span></div><p class="text-xs text-blue-100 mt-2">Best: <b id="best-streak">0</b> days</p></div><div class="text-right"><div class="text-4xl">🏅</div><p id="streak-status" class="text-xs text-blue-100 mt-1">Aaj ka check-in baaki</p></div></div></div>
+    <div class="mt-4"><div class="flex justify-between items-center mb-2"><h3 class="font-bold text-slate-800">⚔️ Your Armory</h3><span id="armory-total" class="text-xs font-bold text-slate-500">0 AK-47</span></div><p class="text-xs text-slate-500 mb-3">Har continuous study day par board me ek collectible add hota hai.</p><div id="armory-board" class="chessboard"></div><p id="armory-empty" class="text-center text-xs text-slate-500 mt-2 hidden">Pehla check-in karke apni armory shuru karo!</p></div>
+    <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl"><p class="text-sm text-amber-900 font-semibold">📅 Daily check-in</p><p class="text-xs text-amber-800 mt-1">Roz ek baar button dabao. Same din dobara dabane se streak nahi badhegi.</p><button id="streak-checkin" onclick="checkInToday()" class="w-full mt-3 py-3 rounded-xl font-extrabold text-white" style="background:#b45309">🔥 Aaj ki padhai complete</button><p id="checkin-message" class="text-xs text-center text-amber-900 mt-2"></p></div>
+    <p class="text-[11px] text-slate-400 mt-3">Note: streak isi phone/browser ke local data me save hoti hai. Data clear karne se pehle Backup lein.</p>
+  </div></div>
+
+  <script>
+  (() => {
+    'use strict';
+    const APP_VERSION = '4.1';
+    const STORAGE_KEY = 'defenseTrackerPro';
+    const defaultData = () => ({exams:{IAF:{English:['Comprehension','Subject-Verb Agreement','Tenses','Prepositions','Articles','Noun & Pronoun','Adjective & Adverb','Conjunctions','Modals','Synonyms & Antonyms','One-word Substitution','Spelling Errors','Idioms & Phrases','Active/Passive Voice','Direct/Indirect Narration'],Maths:['Sets','Logarithms','Trigonometry'],Physics:['Kinematics','Thermodynamics']},NDA:{GAT:['History','Geography'],Maths:['Calculus','Algebra']},Navy:{Science:['Physics','Chemistry'],English:['Grammar']},Army:{'General Knowledge':['History','Static GK'],Maths:['Arithmetic']}},progress:{},activeExam:'IAF',activeSubject:'English',streak:{dates:[],best:0}});
+    let appData = defaultData();
+    let pendingActions = [];
+    let recognition = null;
+    let lastBackupAt = '';
+
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const q = value => String(value).replace(/&/g,'&amp;').replace(/\\/g,'\\\\').replace(/"/g,'&quot;').replace(/'/g,"\\'").replace(/\r/g,' ').replace(/\n/g,' ');
+    const todayKey = () => { const d = new Date(); return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-'); };
+    const dateMinusOne = key => { const [y,m,d]=key.split('-').map(Number); const dt=new Date(y,m-1,d); dt.setDate(dt.getDate()-1); return [dt.getFullYear(),String(dt.getMonth()+1).padStart(2,'0'),String(dt.getDate()).padStart(2,'0')].join('-'); };
+
+    function normalizeStreak(raw){
+      const dates = Array.isArray(raw?.dates) ? [...new Set(raw.dates.filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)))].sort() : [];
+      return {dates, best:Math.max(Number(raw?.best)||0, calculateStreakFromDates(dates))};
+    }
+    function calculateStreakFromDates(dates){
+      if(!dates.length) return 0;
+      const set=new Set(dates); let cursor=dates[dates.length-1]; const today=todayKey();
+      if(cursor!==today && cursor!==dateMinusOne(today)) return 0;
+      let count=0; while(set.has(cursor)){count++;cursor=dateMinusOne(cursor);} return count;
+    }
+    function sanitizeData(data){
+      if(!data || typeof data!=='object' || !data.exams || typeof data.exams!=='object' || Array.isArray(data.exams)) return null;
+      const exams={};
+      Object.keys(data.exams).forEach(exam=>{const subjects=data.exams[exam];if(!subjects||typeof subjects!=='object'||Array.isArray(subjects))return;exams[exam]={};Object.keys(subjects).forEach(subject=>{exams[exam][subject]=Array.isArray(subjects[subject])?subjects[subject].map(x=>String(x).trim()).filter(Boolean):[];});});
+      const examNames=Object.keys(exams);if(!examNames.length)return null;
+      const activeExam=exams[data.activeExam]?data.activeExam:examNames[0];if(!Object.keys(exams[activeExam]).length)exams[activeExam].General=[];
+      const activeSubject=exams[activeExam][data.activeSubject]?data.activeSubject:Object.keys(exams[activeExam])[0];
+      const progress=data.progress&&typeof data.progress==='object'&&!Array.isArray(data.progress)?data.progress:{};
+      return {exams,progress,activeExam,activeSubject,streak:normalizeStreak(data.streak)};
+    }
+    function saveData(){
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(appData));return true;}
+      catch(err){showError('Data save nahi hua: '+(err.message||err));return false;}
+    }
+    function showError(message){const box=$('err-banner'),txt=$('err-text');if(!box||!txt)return;const old=txt.textContent;txt.textContent=(old?old+' | ':'')+String(message).slice(0,350);box.style.display='block';}
+    function hideError(){ $('err-banner').style.display='none'; $('err-text').textContent=''; }
+    window.addEventListener('error',event=>showError((event.message||'JavaScript error')+(event.lineno?' (line '+event.lineno+')':'')));
+    window.addEventListener('unhandledrejection',event=>showError('Promise: '+(event.reason?.message||event.reason||'unknown error')));
+
+    try{const raw=localStorage.getItem(STORAGE_KEY);if(raw){const parsed=JSON.parse(raw);const clean=sanitizeData(parsed);if(clean)appData=clean;else{localStorage.setItem(STORAGE_KEY+'_corrupt',raw);appData=defaultData();showError('Purana data format theek nahi tha; backup copy _corrupt naam se rakhi hai.');}}}catch(err){try{localStorage.setItem(STORAGE_KEY+'_corrupt',localStorage.getItem(STORAGE_KEY)||'');}catch(_){}appData=defaultData();showError('Saved data read nahi ho paya; corrupt copy preserve ki gayi.');}
+
+    function persistAndRender(){saveData();renderAll();}
+    function renderLogo(){let spokes='';for(let i=0;i<24;i++){const a=i*Math.PI/12;spokes+=`<line x1="50" y1="50" x2="${50+40*Math.cos(a)}" y2="${50+40*Math.sin(a)}" stroke="#fff" stroke-width="2"/>`;} $('logo').innerHTML=`<svg width="30" height="30" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="42" fill="none" stroke="#fff" stroke-width="4"/>${spokes}<circle cx="50" cy="50" r="6" fill="#fff"/></svg>`;}
+    function renderExams(){const box=$('exam-tabs');box.innerHTML=Object.keys(appData.exams).map(exam=>`<button onclick="switchExam('${q(exam)}')" class="chip ${appData.activeExam===exam?'on':'off'}">${esc(exam)}</button>`).join('');}
+    function renderSubjects(){const box=$('subject-tabs');box.innerHTML=Object.keys(appData.exams[appData.activeExam]||{}).map(subject=>`<button onclick="switchSubject('${q(subject)}')" class="stab ${appData.activeSubject===subject?'on':''}">${esc(subject)}</button>`).join('');}
+    function renderChapters(){
+      const box=$('chapters-container');const subjects=appData.exams[appData.activeExam]||{};const chapters=subjects[appData.activeSubject]||[];box.innerHTML='';
+      $('subject-name-display').textContent=appData.activeSubject+' Progress';$('exam-badge').textContent=appData.activeExam;
+      if(!chapters.length)box.innerHTML='<div class="card p-6 text-center text-sm text-slate-500">Is subject me abhi koi chapter nahi hai.<br>+ Add Chapter ya 🤖 Assistant se add karo.</div>';
+      let done=0;
+      chapters.forEach(chapter=>{const id=`${appData.activeExam}_${appData.activeSubject}_${chapter}`;const p=appData.progress[id]||{pw:false,rwa:false,yt:false,test:false};const count=[p.pw,p.rwa,p.yt,p.test].filter(Boolean).length;if(count===4)done++;
+        const cls=count===4?'ch-done':count?'ch-part':'ch-none';
+        box.innerHTML+=`<div class="card ${cls} p-4"><div class="flex justify-between items-start gap-2 mb-3"><div class="font-bold text-sm text-slate-800 break-words">${esc(chapter)}</div><span class="text-xs font-extrabold px-2 py-1 rounded-full bg-slate-100 text-slate-600">${count}/4</span></div><div class="grid grid-cols-4 gap-2">${[['pw','PW'],['rwa','RWA'],['yt','YouTube'],['test','Tests']].map(([key,label])=>`<button onclick="toggleProgress('${q(chapter)}','${key}')" class="tgl ${p[key]?'on':''}"><span class="lbl">${label}</span><span class="dot">${p[key]?'✓':''}</span></button>`).join('')}</div><button onclick="removeChapter('${q(chapter)}')" class="text-[11px] text-slate-400 mt-3 underline">Remove chapter</button></div>`;
+      });
+      const pct=chapters.length?Math.round(done/chapters.length*100):0;$('percent-text').textContent=pct+'%';$('progress-fill').style.width=pct+'%';$('stat-total').textContent=chapters.length;$('stat-done').textContent=done;$('stat-left').textContent=chapters.length-done;
+    }
+    function renderBackupInfo(){const b=localStorage.getItem('defenseTrackerPro_lastBackup');$('backup-info').textContent=b?'Last backup: '+b:'Backup reminder: apna data regular download karte rahein.';}
+    function renderStreakHeader(){$('header-streak').textContent=calculateStreakFromDates(appData.streak.dates);}
+    function renderAll(){renderExams();renderSubjects();renderChapters();renderBackupInfo();renderStreakHeader();$('ver').textContent=APP_VERSION;$('bulk-target').textContent=appData.activeExam+' → '+appData.activeSubject;}
+
+    function switchExam(exam){if(!appData.exams[exam])return;appData.activeExam=exam;appData.activeSubject=Object.keys(appData.exams[exam])[0]||'General';if(!appData.exams[exam][appData.activeSubject])appData.exams[exam][appData.activeSubject]=[];persistAndRender();}
+    function switchSubject(subject){if(!appData.exams[appData.activeExam]?.[subject])return;appData.activeSubject=subject;persistAndRender();}
+    function toggleProgress(chapter,key){if(!['pw','rwa','yt','test'].includes(key))return;const id=`${appData.activeExam}_${appData.activeSubject}_${chapter}`;if(!appData.progress[id])appData.progress[id]={pw:false,rwa:false,yt:false,test:false};appData.progress[id][key]=!appData.progress[id][key];persistAndRender();}
+    function addNewExam(){const name=prompt('Exam ka naam likho (jaise NDA, IAF, Navy):');if(!name||!name.trim())return;const exam=name.trim();if(appData.exams[exam]){alert('Ye exam pehle se hai.');return;}appData.exams[exam]={'General':[]};appData.activeExam=exam;appData.activeSubject='General';persistAndRender();}
+    function addNewSubject(){const name=prompt(appData.activeExam+' me naya subject ka naam:');if(!name||!name.trim())return;const subject=name.trim();const subjects=appData.exams[appData.activeExam];if(subjects[subject]){alert('Ye subject pehle se hai.');return;}subjects[subject]=[];appData.activeSubject=subject;persistAndRender();}
+    function addNewChapter(){const name=prompt(appData.activeExam+' → '+appData.activeSubject+' me chapter ka naam:');if(!name||!name.trim())return;const chapter=name.trim();const list=appData.exams[appData.activeExam][appData.activeSubject];if(list.some(x=>x.toLowerCase()===chapter.toLowerCase())){alert('Ye chapter pehle se hai.');return;}list.push(chapter);persistAndRender();}
+    function removeChapter(chapter){if(!confirm('“'+chapter+'” ko is subject se remove karna hai?'))return;const list=appData.exams[appData.activeExam][appData.activeSubject];const index=list.indexOf(chapter);if(index<0)return;list.splice(index,1);persistAndRender();}
+    function bulkAdd(){const raw=$('bulk-input').value;const names=raw.split(/\n|,/).map(x=>x.trim()).filter(Boolean);if(!names.length){alert('Pehle chapter list paste karo.');return;}let added=0;const list=appData.exams[appData.activeExam][appData.activeSubject];names.forEach(name=>{if(!list.some(x=>x.toLowerCase()===name.toLowerCase())){list.push(name);added++;}});$('bulk-input').value='';persistAndRender();$('ai-status').textContent=added+' naye chapter add hue; duplicate skip hue.';}
+
+    function escapeRegExp(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+    function hasPhrase(text,phrase){return new RegExp('(^|[^a-z0-9])'+escapeRegExp(phrase.toLowerCase())+'(?=$|[^a-z0-9])','i').test(text.toLowerCase());}
+    function removePhrase(text,phrase){return text.replace(new RegExp('(^|[^a-z0-9])'+escapeRegExp(phrase)+'(?=$|[^a-z0-9])','gi'),' ');}
+    function parseChapterCommand(input){
+      const text=String(input||'').trim();if(!text)return {error:'Command likho, jaise: IAF aur NDA ke English subject me Noun add karo.'};
+      const examNames=Object.keys(appData.exams).sort((a,b)=>b.length-a.length);let selectedExams=examNames.filter(name=>hasPhrase(text,name));if(!selectedExams.length)selectedExams=[appData.activeExam];
+      const allSubjects=[...new Set(Object.values(appData.exams).flatMap(obj=>Object.keys(obj)))].sort((a,b)=>b.length-a.length);
+      let selectedSubjects=allSubjects.filter(name=>hasPhrase(text,name));if(!selectedSubjects.length)selectedSubjects=[appData.activeSubject];
+      let cleaned=text;
+      examNames.forEach(name=>{cleaned=removePhrase(cleaned,name);});allSubjects.forEach(name=>{cleaned=removePhrase(cleaned,name);});
+      cleaned=cleaned.replace(/\b(subjects?|exams?|chapters?|topics?)\b/gi,' ')
+        .replace(/\b(please|pls|add|added|create|insert|include|chapter|chapters|topic|topics|in|into|for|to|the|me|mein|mai|ka|ke|ki|ko|par|pe|aur|or|and|bhi|karo|kar|do|de|dena|dijiye|kardo|krdo|addkaro|jodo|jod|joddo|daalo|daal|shamil|karna|chahiye|hain|hai|subject|wale|waale)\b/gi,' ')
+        .replace(/[\u200b-\u200f]/g,' ').replace(/[.!?;:]+/g,' ').replace(/\s+/g,' ').trim();
+      // Common Hindi command words and conjunctions may be joined to the final chapter; clean edges.
+      const chapters=cleaned.split(/\s*(?:,|\n|\band\b|\baur\b|&|\+|\bplus\b)\s*/i).map(x=>x.trim()).filter(x=>x.length>0).map(x=>x.replace(/^(?:aur|and)\s+/i,'').trim()).filter(Boolean);
+      if(!chapters.length)return {error:'Chapter ka naam samajh nahi aaya. Example: IAF aur NDA ke English subject me Noun add karo.'};
+      const targets=[];selectedExams.forEach(exam=>selectedSubjects.forEach(subject=>targets.push({exam,subject,chapters:[...new Set(chapters)]})));
+      return {targets,chapters:[...new Set(chapters)],selectedExams,selectedSubjects};
+    }
+    function toggleAI(open){const sheet=$('ai-sheet');sheet.style.display=open?'flex':'none';if(open){$('ai-input').focus();$('bulk-target').textContent=appData.activeExam+' → '+appData.activeSubject;}}
+    function runAI(){const parsed=parseChapterCommand($('ai-input').value);const status=$('ai-status');const preview=$('ai-preview');if(parsed.error){status.textContent=parsed.error;preview.classList.add('hidden');return;}pendingActions=parsed.targets;const lines=[];parsed.targets.forEach(target=>target.chapters.forEach(ch=>lines.push(`${target.exam} → ${target.subject}: ${ch}`)));$('ai-message').textContent=`${parsed.chapters.length} chapter name(s), ${parsed.selectedExams.length} exam(s), ${parsed.selectedSubjects.length} subject(s). Apply karne par missing subject zarurat par ban jayega.`;$('ai-actions').innerHTML=lines.map(line=>`<li>${esc(line)}</li>`).join('');preview.classList.remove('hidden');status.textContent='Preview ready. Sahi ho to Apply dabao.';}
+    function applyAI(){if(!pendingActions.length)return;let added=0,createdSubjects=0,duplicates=0;pendingActions.forEach(target=>{if(!appData.exams[target.exam])return;if(!appData.exams[target.exam][target.subject]){appData.exams[target.exam][target.subject]=[];createdSubjects++;}const list=appData.exams[target.exam][target.subject];target.chapters.forEach(ch=>{if(!list.some(x=>x.toLowerCase()===ch.toLowerCase())){list.push(ch);added++;}else duplicates++;});});pendingActions=[];$('ai-preview').classList.add('hidden');$('ai-input').value='';persistAndRender();$('ai-status').textContent=`Done! ${added} naye chapter add hue, ${createdSubjects} subject create hue, ${duplicates} duplicate skip hue.`;}
+    function cancelAI(){pendingActions=[];$('ai-preview').classList.add('hidden');$('ai-status').textContent='Preview cancel kar diya.';}
+    function startVoice(){const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;if(!Speech){$('ai-status').textContent='Is browser me voice typing support nahi hai. Keyboard mic use kar sakte ho.';return;}try{recognition=new Speech();recognition.lang='hi-IN';recognition.interimResults=false;recognition.maxAlternatives=1;$('ai-mic').disabled=true;$('ai-status').textContent='Bolna shuru karo…';recognition.onresult=e=>{$('ai-input').value=e.results[0][0].transcript;$('ai-status').textContent='Voice text aa gaya. Preview banao.';};recognition.onerror=e=>{$('ai-status').textContent='Voice error: '+e.error;};recognition.onend=()=>{$('ai-mic').disabled=false;};recognition.start();}catch(err){$('ai-mic').disabled=false;$('ai-status').textContent='Mic start nahi hua: '+err.message;}}
+
+    function exportData(){try{const blob=new Blob([JSON.stringify(appData,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='IAF-Tracker-Backup-'+todayKey()+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);lastBackupAt=new Date().toLocaleString('en-IN');localStorage.setItem('defenseTrackerPro_lastBackup',lastBackupAt);renderBackupInfo();}catch(err){alert('Backup nahi bana: '+err.message);}}
+    function importData(event){const file=event.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const parsed=JSON.parse(String(reader.result));const clean=sanitizeData(parsed);if(!clean)throw new Error('Backup file ka format sahi nahi hai.');if(!confirm('Current tracker data ko backup se replace karna hai? Pehle current data ka backup lein.'))return;appData=clean;saveData();renderAll();alert('Backup restore ho gaya.');}catch(err){alert('Restore failed: '+err.message);}finally{event.target.value='';}};reader.onerror=()=>alert('File read nahi ho payi.');reader.readAsText(file);}
+    async function forceUpdate(){if(!confirm('App ki cached files refresh hongi. Tumhara study progress/local data delete nahi hoga. Continue?'))return;try{if('caches' in window){const keys=await caches.keys();await Promise.all(keys.map(key=>caches.delete(key)));}if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(reg=>reg.unregister()));}location.reload();}catch(err){showError('Refresh issue: '+err.message);}}
+
+    function openStreak(){renderStreak();$('streak-sheet').style.display='flex';}
+    function closeStreak(){$('streak-sheet').style.display='none';}
+    function renderStreak(){const count=calculateStreakFromDates(appData.streak.dates);$('streak-count').textContent=count;$('best-streak').textContent=Math.max(appData.streak.best,count);$('armory-total').textContent=count+' AK-47';$('header-streak').textContent=count;const checked=appData.streak.dates.includes(todayKey());$('streak-status').textContent=checked?'Aaj ka check-in complete ✅':'Aaj ka check-in baaki';$('streak-checkin').disabled=checked;$('streak-checkin').textContent=checked?'✅ Aaj ka check-in ho gaya':'🔥 Aaj ki padhai complete';$('checkin-message').textContent=checked?'Shabash! Aaj ki streak save ho gayi.':'';
+      const board=$('armory-board');board.innerHTML='';const total=count;const cells=Math.max(16,Math.ceil(Math.max(total,1)/8)*8);for(let i=0;i<cells;i++){const cell=document.createElement('div');cell.className='chess-cell';if(i<total){cell.innerHTML=`<div class="flex flex-col items-center justify-center w-full"><svg class="rifle" viewBox="0 0 150 52" aria-label="Decorative AK-47 token" role="img"><g fill="#17202b" stroke="#d6b36b" stroke-width="1.5" stroke-linejoin="round"><path d="M7 21h20l12-7h28l7 5h16v7H63l-7 6H38l-9-5H7z"/><path d="M89 18h46v5H89z"/><path d="M46 31h16l-4 12H48z"/><path d="M69 27h12l-2 7H70z"/><path d="M24 19l-9-8h14l10 8z"/></g><circle cx="79" cy="21" r="2" fill="#ffcc66"/></svg><span class="rifle-label">AK-47</span></div>`;}board.appendChild(cell);}
+      $('armory-empty').classList.toggle('hidden',total>0);
+    }
+    function checkInToday(){const key=todayKey();if(appData.streak.dates.includes(key)){renderStreak();return;}appData.streak.dates.push(key);appData.streak.dates=[...new Set(appData.streak.dates)].sort();const count=calculateStreakFromDates(appData.streak.dates);appData.streak.best=Math.max(appData.streak.best,count);saveData();renderStreak();$('checkin-message').textContent='🔥 Great! Aaj ki streak save ho gayi. Kal phir check-in karna.';}
+
+    // Expose functions used by inline HTML controls.
+    Object.assign(window,{switchExam,switchSubject,toggleProgress,addNewExam,addNewSubject,addNewChapter,removeChapter,bulkAdd,toggleAI,runAI,cancelAI,applyAI,startVoice,exportData,importData,forceUpdate,openStreak,closeStreak,checkInToday,hideError});
+    renderLogo();renderAll();
+    if('serviceWorker' in navigator && location.protocol.startsWith('http')){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('Service worker registration failed:',err)));}
+    if(navigator.storage?.persist) navigator.storage.persist().catch(()=>{});
+    window.addEventListener('online',()=> $('net-badge').classList.add('hidden'));
+    window.addEventListener('offline',()=> $('net-badge').classList.remove('hidden'));
+    if(!navigator.onLine)$('net-badge').classList.remove('hidden');
+  })();
+  </script>
+</body>
+</html>
