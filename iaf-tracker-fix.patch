@@ -1,0 +1,356 @@
+diff --git a/index.html b/index.html
+index 49903f8..8575835 100644
+--- a/index.html
++++ b/index.html
+@@ -180,7 +180,7 @@
+   (() => {
+     'use strict';
+ 
+-    const APP_VERSION = '5.1';
++    const APP_VERSION = '5.2';
+     const STORAGE_KEY = 'defenseTrackerPro';
+     const $ = id => document.getElementById(id);
+ 
+@@ -318,6 +318,76 @@
+       return Array.isArray(value) ? value : [];
+     }
+ 
++    // ---- rename-safe keys -------------------------------------------------
++    // Progress, tests and materials are keyed by exam/subject names, so a
++    // rename must carry those keys over or the old data looks lost.
++    function migrateStoreKeys(oldKey, newKey) {
++      if (!oldKey || !newKey || oldKey === newKey) return;
++      ['tests', 'materials'].forEach(store => {
++        const bucket = appData[store];
++        if (!bucket || typeof bucket !== 'object') return;
++        if (Object.prototype.hasOwnProperty.call(bucket, oldKey)) {
++          bucket[newKey] = bucket[oldKey];
++          delete bucket[oldKey];
++        }
++      });
++    }
++
++    function migrateExamRename(oldExam, newExam) {
++      const subjects = Object.keys(appData.exams[newExam] || {});
++      const progress = {};
++      Object.keys(appData.progress || {}).forEach(key => {
++        if (key.indexOf(oldExam + '_') !== 0) { progress[key] = appData.progress[key]; return; }
++        const rest = key.slice(oldExam.length + 1);
++        const subject = subjects
++          .filter(s => rest.indexOf(s + '_') === 0)
++          .sort((a, b) => b.length - a.length)[0];
++        progress[subject ? newExam + '_' + rest : key] = appData.progress[key];
++      });
++      appData.progress = progress;
++
++      // tests / materials: "<exam>__<subject>"
++      Object.keys(appData.tests || {}).forEach(key => {
++        if (key.indexOf(oldExam + '__') === 0) migrateStoreKeys(key, newExam + '__' + key.slice(oldExam.length + 2));
++      });
++      Object.keys(appData.materials || {}).forEach(key => {
++        if (key.indexOf(oldExam + '__') === 0) migrateStoreKeys(key, newExam + '__' + key.slice(oldExam.length + 2));
++      });
++      migratePDFNames({exam: oldExam}, {exam: newExam});
++    }
++
++    function migrateSubjectRename(exam, oldSubject, newSubject) {
++      const oldPrefix = exam + '_' + oldSubject + '_';
++      const newPrefix = exam + '_' + newSubject + '_';
++      const progress = {};
++      Object.keys(appData.progress || {}).forEach(key => {
++        progress[key.indexOf(oldPrefix) === 0 ? newPrefix + key.slice(oldPrefix.length) : key] = appData.progress[key];
++      });
++      appData.progress = progress;
++      migrateStoreKeys(exam + '__' + oldSubject, exam + '__' + newSubject);
++      migratePDFNames({exam: exam, subject: oldSubject}, {exam: exam, subject: newSubject});
++    }
++
++    // PDFs saved in IndexedDB also carry the exam/subject names.
++    function migratePDFNames(match, update) {
++      openPDFDatabase().then(db => {
++        const tx = db.transaction('pdfs', 'readwrite');
++        const request = tx.objectStore('pdfs').openCursor();
++        request.onsuccess = () => {
++          const cursor = request.result;
++          if (!cursor) return;
++          const record = cursor.value;
++          let changed = false;
++          if (match.exam !== undefined && record.exam === match.exam) { record.exam = update.exam; changed = true; }
++          if (match.subject !== undefined && record.subject === match.subject) { record.subject = update.subject; changed = true; }
++          if (changed) cursor.update(record);
++          cursor.continue();
++        };
++        tx.oncomplete = () => { db.close(); renderSubjectLibrary(); };
++        tx.onerror = () => { db.close(); };
++      }).catch(() => {});
++    }
++
+     function renderLogo() {
+       $('logo').innerHTML = '<svg viewBox="0 0 100 100" width="38" height="38" aria-label="Ashoka Chakra"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#ff9933" stroke-width="4"/><circle cx="50" cy="50" r="34" fill="none" stroke="#09265c" stroke-width="4"/><circle cx="50" cy="50" r="6" fill="#09265c"/><g stroke="#09265c" stroke-width="2.5">'+Array.from({length:24},(_,i)=>`<line x1="50" y1="17" x2="50" y2="44" transform="rotate(${i*15} 50 50)"/>`).join('')+'</g></svg>';
+     }
+@@ -380,9 +450,10 @@
+       const total = chapters.length * appData.progressTypes.length;
+       let done = 0;
+       chapters.forEach(ch => done += getProgress(ch).length);
++      const completed = chapters.filter(ch => getProgress(ch).length===appData.progressTypes.length).length;
+       $('stat-total').textContent = chapters.length;
+-      $('stat-done').textContent = chapters.filter(ch => getProgress(ch).length===appData.progressTypes.length).length;
+-      $('stat-left').textContent = chapters.length-Number($('stat-done').textContent);
++      $('stat-done').textContent = completed;
++      $('stat-left').textContent = chapters.length-completed;
+       const percent = total ? Math.round(done/total*100) : 0;
+       $('percent-text').textContent = percent+'%';
+       $('progress-fill').style.width = percent+'%';
+@@ -450,6 +521,7 @@ const r = name.trim();
+       appData.exams[newName] = appData.exams[oldName];
+       delete appData.exams[oldName];
+       appData.activeExam = newName;
++      migrateExamRename(oldName, newName);
+       persistAndRender();
+     }
+ 
+@@ -473,6 +545,7 @@ const r = name.trim();
+       subjects[newName] = subjects[oldName];
+       delete subjects[oldName];
+       appData.activeSubject = newName;
++      migrateSubjectRename(appData.activeExam, oldName, newName);
+       persistAndRender();
+     }
+ 
+@@ -564,12 +637,18 @@ const r = name.trim();
+       $('library-subject-label').textContent = appData.activeSubject;
+       const key = subjectKey();
+       const tests = appData.tests[key] || [];
+-      $('subject-test-list').innerHTML = tests.length ? tests.map((test, index) =>
++      const testsDone = tests.filter(test => test && test.done).length;
++      $('subject-test-list').innerHTML = tests.length ? (
++        `<p class="text-[11px] text-slate-500 mb-1">${testsDone}/${tests.length} tests complete</p>` +
++        tests.map((test, index) =>
+         `<div class="flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-lg">
+-          <span class="text-sm font-semibold">${esc(test.name)}</span>
+-          <button onclick="removeSubjectTest(${index})" class="text-xs text-red-700 underline">Delete</button>
++          <span class="text-sm font-semibold ${test && test.done ? 'line-through text-slate-400' : ''}">${esc(test && test.name)}</span>
++          <span class="flex gap-2 shrink-0">
++            <button onclick="toggleSubjectTest(${index})" class="text-xs underline ${test && test.done ? 'text-green-700' : 'text-slate-600'}">${test && test.done ? '\u2713 Done' : 'Mark done'}</button>
++            <button onclick="removeSubjectTest(${index})" class="text-xs text-red-700 underline">Delete</button>
++          </span>
+         </div>`
+-      ).join('') : '<p class="text-xs text-slate-400">Abhi koi test nahi hai.</p>';
++      ).join('')) : '<p class="text-xs text-slate-400">Abhi koi test nahi hai.</p>';
+ 
+       try {
+         const db = await openPDFDatabase();
+@@ -650,6 +729,15 @@ const r = name.trim();
+       renderSubjectLibrary();
+     }
+ 
++    function toggleSubjectTest(index) {
++      const key = subjectKey();
++      const tests = appData.tests[key];
++      if (!tests || !tests[index]) return;
++      tests[index].done = !tests[index].done;
++      saveData();
++      renderSubjectLibrary();
++    }
++
+     // Study streak
+     function renderStreak() {
+       const streak = appData.streak || {dates:[],best:0};
+@@ -705,13 +793,123 @@ const r = name.trim();
+         : 'Apna study data safe rakhne ke liye regular backup download karein.';
+     }
+ 
+-    function exportData() {
++    // ---- PDF backup helpers ----------------------------------------------
++    function blobToBase64(blob) {
++      return new Promise((resolve, reject) => {
++        const reader = new FileReader();
++        reader.onload = () => {
++          const result = String(reader.result || '');
++          resolve(result.indexOf(',') >= 0 ? result.slice(result.indexOf(',') + 1) : '');
++        };
++        reader.onerror = () => reject(reader.error || new Error('read failed'));
++        reader.readAsDataURL(blob);
++      });
++    }
++
++    function base64ToBlob(base64, type) {
++      const binary = atob(base64);
++      const bytes = new Uint8Array(binary.length);
++      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
++      return new Blob([bytes], {type: type || 'application/pdf'});
++    }
++
++    async function readAllPDFs() {
++      try {
++        const db = await openPDFDatabase();
++        const records = await new Promise((resolve, reject) => {
++          const tx = db.transaction('pdfs', 'readonly');
++          const request = tx.objectStore('pdfs').getAll();
++          request.onsuccess = () => resolve(request.result || []);
++          request.onerror = () => reject(request.error);
++        });
++        db.close();
++        return records;
++      } catch (err) {
++        console.warn('PDF read issue:', err);
++        return [];
++      }
++    }
++
++    async function restorePDFs(list) {
++      const result = {added:0, skipped:0, failed:0};
++      if (!Array.isArray(list) || !list.length) return result;
++      const keyOf = r => [r.name, r.exam, r.subject, r.addedAt].join('|');
++      const seen = new Set((await readAllPDFs()).map(keyOf));
++      let db;
++      try {
++        db = await openPDFDatabase();
++      } catch (err) {
++        result.failed = list.length;
++        return result;
++      }
++      for (const item of list) {
++        try {
++          if (!item || typeof item.data !== 'string' || !item.data) { result.failed++; continue; }
++          const record = {
++            name: typeof item.name === 'string' ? item.name : 'PDF',
++            exam: typeof item.exam === 'string' ? item.exam : '',
++            subject: typeof item.subject === 'string' ? item.subject : '',
++            blob: base64ToBlob(item.data, item.type),
++            addedAt: Number(item.addedAt) || Date.now()
++          };
++          if (seen.has(keyOf(record))) { result.skipped++; continue; }
++          await new Promise((resolve, reject) => {
++            const tx = db.transaction('pdfs', 'readwrite');
++            tx.objectStore('pdfs').add(record);
++            tx.oncomplete = resolve;
++            tx.onerror = () => reject(tx.error);
++          });
++          seen.add(keyOf(record));
++          result.added++;
++        } catch (err) {
++          result.failed++;
++        }
++      }
++      try { db.close(); } catch (err) {}
++      return result;
++    }
++
++    async function exportData() {
+       const payload = {
+         app:'Defense Exam Tracker',
+         version:APP_VERSION,
+         exportedAt:new Date().toISOString(),
+-        data:appData
++        data:appData,
++        pdfs:[]
+       };
++      let pdfNote = '';
++      try {
++        const records = await readAllPDFs();
++        if (records.length) {
++          const totalBytes = records.reduce((sum, r) => sum + ((r.blob && r.blob.size) || 0), 0);
++          if (totalBytes > 25 * 1024 * 1024 &&
++              !confirm('PDFs ka size ' + Math.round(totalBytes / (1024 * 1024)) + ' MB hai, backup bada banega. Continue?')) {
++            return;
++          }
++          let pdfFailed = 0;
++          const converted = await Promise.all(records.map(async record => {
++            try {
++              const data = await blobToBase64(record.blob);
++              if (!data) { pdfFailed++; return null; }
++              return {
++                name: record.name,
++                exam: record.exam,
++                subject: record.subject,
++                addedAt: record.addedAt,
++                type: (record.blob && record.blob.type) || 'application/pdf',
++                data: data
++              };
++            } catch (err) {
++              pdfFailed++;
++              return null;
++            }
++          }));
++          payload.pdfs = converted.filter(Boolean);
++          pdfNote = ' \u00b7 ' + payload.pdfs.length + ' PDF' + (pdfFailed ? ' (' + pdfFailed + ' fail)' : '');
++        }
++      } catch (err) {
++        pdfNote = ' \u00b7 PDFs backup nahi hui';
++      }
+       const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+       const url = URL.createObjectURL(blob);
+       const a = document.createElement('a');
+@@ -721,7 +919,7 @@ const r = name.trim();
+       a.click();
+       a.remove();
+       URL.revokeObjectURL(url);
+-      lastBackupAt = new Date().toLocaleString();
++      lastBackupAt = new Date().toLocaleString() + pdfNote;
+       renderBackupInfo();
+     }
+ 
+@@ -738,7 +936,17 @@ const r = name.trim();
+           appData = restored;
+           saveData();
+           renderAll();
+-          alert('Backup successfully restore ho gaya!');
++          const pdfs = Array.isArray(parsed.pdfs) ? parsed.pdfs : [];
++          if (pdfs.length) {
++            restorePDFs(pdfs).then(res => {
++              renderSubjectLibrary();
++              alert('Backup restore ho gaya!\nPDFs: ' + res.added + ' restore, ' + res.skipped + ' pehle se maujood, ' + res.failed + ' fail.');
++            }).catch(() => {
++              alert('Backup restore ho gaya, lekin PDFs restore nahi hui.');
++            });
++          } else {
++            alert('Backup successfully restore ho gaya!');
++          }
+         } catch (err) {
+           alert('Restore nahi hua: ' + err.message);
+         } finally {
+@@ -750,9 +958,21 @@ const r = name.trim();
+     }
+ 
+     // App refresh and error handling
+-    function forceUpdate() {
++    async function forceUpdate() {
+       const button = document.activeElement;
+       if (button && button.tagName === 'BUTTON') button.disabled = true;
++      try {
++        if ('caches' in window) {
++          const keys = await caches.keys();
++          await Promise.all(keys.map(key => caches.delete(key)));
++        }
++        if ('serviceWorker' in navigator) {
++          const regs = await navigator.serviceWorker.getRegistrations();
++          await Promise.all(regs.map(reg => reg.unregister()));
++        }
++      } catch (err) {
++        console.warn('Cache clear issue:', err);
++      }
+       window.location.reload();
+     }
+ 
+@@ -780,7 +1000,7 @@ const r = name.trim();
+       renameExam, removeExam, renameSubject, removeSubject,
+       renameChapter, removeChapter,
+       pickSubjectPDF, saveSubjectPDFs, openSubjectPDF, deleteSubjectPDF,
+-      addSubjectTest, removeSubjectTest,
++      addSubjectTest, removeSubjectTest, toggleSubjectTest,
+       openStreak, closeStreak, checkInToday,
+       exportData, importData, forceUpdate, hideError
+     });
+diff --git a/sw.js b/sw.js
+index aa9068f..3470434 100644
+--- a/sw.js
++++ b/sw.js
+@@ -33,7 +33,6 @@ self.addEventListener('fetch', e => {
+   const req = e.request;
+   if (req.method !== 'GET') return;
+   const url = new URL(req.url);
+-  if (url.hostname === 'generativelanguage.googleapis.com') return;
+ 
+   // Page (HTML): pehle internet se fresh lo (4 sec), na mile to offline copy
+   if (req.mode === 'navigate') {
