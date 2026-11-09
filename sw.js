@@ -33,7 +33,6 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.hostname === 'generativelanguage.googleapis.com') return;
 
   // Page (HTML): pehle internet se fresh lo (4 sec), na mile to offline copy
   if (req.mode === 'navigate') {
