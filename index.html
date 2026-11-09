@@ -14,6 +14,18 @@
     <link rel="icon" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
 
+    <!-- Error catcher: koi bhi error screen par dikhega -->
+    <script>
+        window.__errs = [];
+        function showErr(msg) {
+            window.__errs.push(msg);
+            var b = document.getElementById('err-banner'), t = document.getElementById('err-text');
+            if (b && t) { t.textContent = window.__errs.slice(-3).join(' | '); b.style.display = 'block'; }
+        }
+        window.addEventListener('error', function (e) { showErr((e.message || 'Error') + (e.lineno ? ' (line ' + e.lineno + ')' : '')); });
+        window.addEventListener('unhandledrejection', function (e) { showErr('Promise: ' + ((e.reason && e.reason.message) || e.reason)); });
+    </script>
+
     <!-- Tailwind CSS for Layout -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -74,6 +86,15 @@
     </style>
 </head>
 <body class="min-h-screen">
+
+    <!-- Error banner -->
+    <div id="err-banner" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:300;background:#7f1d1d;color:#fff;padding:12px;font-size:12px">
+        <b>⚠️ App me error aaya:</b> <span id="err-text"></span>
+        <div style="display:flex;gap:8px;margin-top:8px">
+            <button onclick="forceUpdate()" style="background:#fff;color:#7f1d1d;padding:6px 12px;border-radius:8px;font-weight:700">🔄 Fix: App refresh</button>
+            <button onclick="document.getElementById('err-banner').style.display='none'" style="background:rgba(255,255,255,.2);padding:6px 12px;border-radius:8px">Band</button>
+        </div>
+    </div>
 
     <!-- Header -->
     <header class="hdr sticky top-0 z-50 text-white shadow-xl">
@@ -138,11 +159,14 @@
                 <button onclick="document.getElementById('import-file').click()" class="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg text-sm font-semibold">⬆️ Restore</button>
                 <input id="import-file" type="file" accept="application/json,.json" class="hidden" onchange="importData(event)">
             </div>
+            <button onclick="forceUpdate()" class="w-full mt-2 bg-slate-100 text-slate-700 py-2.5 rounded-lg text-sm font-semibold">🔄 App update / fix karo</button>
+            <p class="text-[11px] text-slate-400 mt-1">Isse sirf app ki purani files saaf hoti hain, tumhara progress data safe rehta hai.</p>
         </div>
 
         <footer class="mt-8 mb-24 text-center">
             <div class="tricolor rounded mx-auto mb-2" style="width:80px"></div>
             <p class="text-xs text-slate-400">जय हिन्द · Padhte raho, aage badhte raho</p>
+            <p class="text-[10px] text-slate-300 mt-1">v<span id="ver"></span></p>
         </footer>
     </main>
 
@@ -198,7 +222,7 @@
     <!-- Main App -->
     <script>
         // Initial Data Structure
-        let appData = {
+        const defaultData = () => ({
             exams: {
                 "IAF": {
                     "English": [
@@ -218,13 +242,41 @@
             progress: {},
             activeExam: "IAF",
             activeSubject: "English"
-        };
+        });
+        const APP_VERSION = '4.0';
+
+        // Data ko hamesha sahi shape me rakho (bigda data app ko mar na de)
+        function sanitizeData(d) {
+            if (!d || typeof d !== 'object' || !d.exams || typeof d.exams !== 'object' || Array.isArray(d.exams)) return null;
+            const exams = {};
+            Object.keys(d.exams).forEach(en => {
+                const subs = d.exams[en];
+                if (!subs || typeof subs !== 'object' || Array.isArray(subs)) return;
+                exams[en] = {};
+                Object.keys(subs).forEach(sn => { exams[en][sn] = Array.isArray(subs[sn]) ? subs[sn].map(String) : []; });
+            });
+            const names = Object.keys(exams);
+            if (!names.length) return null;
+            const progress = (d.progress && typeof d.progress === 'object' && !Array.isArray(d.progress)) ? d.progress : {};
+            const ae = exams[d.activeExam] ? d.activeExam : names[0];
+            if (!Object.keys(exams[ae]).length) exams[ae]['General'] = [];
+            const as = exams[ae][d.activeSubject] ? d.activeSubject : Object.keys(exams[ae])[0];
+            return { exams, progress, activeExam: ae, activeSubject: as };
+        }
 
         // Load from LocalStorage
-        const saved = localStorage.getItem('defenseTrackerPro');
-        if (saved) {
-            try { appData = JSON.parse(saved); }
-            catch (e) { localStorage.setItem('defenseTrackerPro_corrupt', saved); }
+        let appData = defaultData();
+        let loadNotice = '';
+        try {
+            const saved = localStorage.getItem('defenseTrackerPro');
+            if (saved) {
+                const clean = sanitizeData(JSON.parse(saved));
+                if (clean) appData = clean;
+                else { localStorage.setItem('defenseTrackerPro_corrupt', saved); loadNotice = 'Purana data kharab tha, naya shuru kiya (purani copy safe hai).'; }
+            }
+        } catch (e) {
+            try { localStorage.setItem('defenseTrackerPro_corrupt', localStorage.getItem('defenseTrackerPro') || ''); } catch (e2) {}
+            loadNotice = 'Purana data padh nahi paye, naya shuru kiya (purani copy safe hai).';
         }
 
         // Helpers: safe text for HTML and for inline onclick strings
@@ -280,74 +332,4 @@
 
                 container.innerHTML += `
                     <div class="card ${cls} p-4">
-                        <div class="flex justify-between items-center mb-3 gap-2">
-                            <h3 class="font-bold text-sm" style="color:#0b1f4d">${idx + 1}. ${esc(ch)}</h3>
-                            <span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${n === 4 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}">${n}/4</span>
-                        </div>
-                        <div class="grid grid-cols-4 gap-2">
-                            ${renderToggle(chId, 'pw', 'PW', prog.pw)}
-                            ${renderToggle(chId, 'rwa', 'RWA', prog.rwa)}
-                            ${renderToggle(chId, 'yt', 'YouTube', prog.yt)}
-                            ${renderToggle(chId, 'test', 'Tests', prog.test)}
-                        </div>
-                    </div>`;
-            });
-            updateProgress();
-        }
-
-        function renderToggle(chId, type, label, val) {
-            return `
-                <button onclick="toggleBox('${q(chId)}', '${type}')" class="tgl ${val ? 'on' : ''}">
-                    <span class="lbl">${label}</span>
-                    <span class="dot">${val ? '✓' : ''}</span>
-                </button>`;
-        }
-
-        // Actions
-        window.switchExam = (exam) => {
-            appData.activeExam = exam;
-            appData.activeSubject = Object.keys(appData.exams[exam])[0];
-            saveAndRefresh();
-        };
-        window.switchSubject = (sub) => { appData.activeSubject = sub; saveAndRefresh(); };
-        window.toggleBox = (chId, type) => {
-            if (!appData.progress[chId]) appData.progress[chId] = { pw: false, rwa: false, yt: false, test: false };
-            appData.progress[chId][type] = !appData.progress[chId][type];
-            saveAndRefresh();
-        };
-        window.addNewExam = () => {
-            const name = prompt("Exam का नाम डालें (e.g. CDS, Police):");
-            if (name && name.trim()) {
-                appData.exams[name.trim()] = { "General": [] };
-                appData.activeExam = name.trim();
-                appData.activeSubject = "General";
-                saveAndRefresh();
-            }
-        };
-        window.addNewChapter = () => {
-            const name = prompt("चैप्टर का नाम डालें:");
-            if (name && name.trim()) {
-                const ex = appData.exams[appData.activeExam];
-                if (!ex[appData.activeSubject]) ex[appData.activeSubject] = [];
-                ex[appData.activeSubject].push(name.trim());
-                saveAndRefresh();
-            }
-        };
-
-        function updateProgress() {
-            const chapters = appData.exams[appData.activeExam][appData.activeSubject] || [];
-            let checked = 0, complete = 0;
-            chapters.forEach(ch => {
-                const p = appData.progress[`${appData.activeExam}_${appData.activeSubject}_${ch}`];
-                if (p) {
-                    const n = [p.pw, p.rwa, p.yt, p.test].filter(Boolean).length;
-                    checked += n;
-                    if (n === 4) complete++;
-                }
-            });
-            const total = chapters.length * 4;
-            const percent = total === 0 ? 0 : Math.round((checked / total) * 100);
-            document.getElementById('progress-fill').style.width = percent + '%';
-            document.getElementById('percent-text').innerText = percent + '%';
-            document.getElementById('stat-total').innerText = chapters.length;
-      
+                  
